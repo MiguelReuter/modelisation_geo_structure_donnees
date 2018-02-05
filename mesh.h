@@ -5,6 +5,12 @@
 #include "vertex.h"
 #include "triangle.h"
 #include <vector>
+#include <iostream>
+
+struct point {
+    double x, y, z;
+};
+
 
 using namespace std;
 
@@ -19,9 +25,22 @@ public:
 
     void draw();
 
-    void set_mesh_to_tetra();
-    void set_mesh_to_cube();
+    void setMeshToTetra();
+    void setMeshToEnclosingBox();
 
+    bool pointIsInsideTriangle(int tri_id, double x, double y, double z);
+    bool pointIsInsideTriangle(int tri_id, point p);
+
+    bool trisAreIncident(int tri_id_1, int tri_id_2);
+
+    int pointInWhichTriangle(point p);
+
+    void insertPoint(point p);
+    void insertPoint(double x, double y, double z){return insertPoint({x, y, z});}
+
+    void flipEdge(int id_tri_1, int id_tri_2);
+
+    friend ostream& operator<<(ostream& os, Mesh& mesh);
 
 };
 

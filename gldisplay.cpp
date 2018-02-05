@@ -1,6 +1,6 @@
 #include "gldisplay.h"
 
-#define FRUSTUM_SIZE 1.0f
+#define FRUSTUM_SIZE 2.0f
 
 GLDisplay::GLDisplay(QWidget *parent) :
     QGLWidget(parent),

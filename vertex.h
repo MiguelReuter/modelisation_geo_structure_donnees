@@ -10,7 +10,6 @@ public:
 
     int triangle_index;
     double x, y, z;
-
 };
 
 #endif // VERTEX_H
