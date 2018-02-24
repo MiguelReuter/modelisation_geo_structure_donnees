@@ -31,7 +31,19 @@ public:
     bool pointIsInsideTriangle(int tri_id, double x, double y, double z);
     bool pointIsInsideTriangle(int tri_id, point p);
 
+    bool edgeIsLocallyDelaunay(int tri_id1, int tri_id2) const;
+
+    void LawsonAlgorithm();
+
     bool trisAreIncident(int tri_id_1, int tri_id_2);
+
+    bool isTriangleInfinite(int tri_id);
+
+
+    bool pointIsInCircle(point s, point p, point q, point r) const;
+    bool pointIsInCircle(point s, const Triangle& triangle) const;
+    bool pointIsInCircle(const Vertex& s, const Triangle& triangle) const {return pointIsInCircle({s.x, s.y, s.z}, triangle);}
+    bool pointIsInCircle(const Vertex& s, const Vertex& p, const Vertex& q, const Vertex& r) const;
 
     int pointInWhichTriangle(point p);
 
