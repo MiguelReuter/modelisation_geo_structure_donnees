@@ -1,9 +1,5 @@
 #include "mesh.h"
-#include <GL/gl.h>
-#include <cstdlib>
-#include <time.h>
 
-#include <queue>
 
 #define EDGE_MARGIN 0.00005
 
@@ -44,11 +40,7 @@ Mesh::Mesh()
     //insertPoint({0.1, 0.4, 0.0});
     //insertPoint({0.4, 0.1, 0.0});
 
-
-    flipEdge(7, 9);
-    //cout << edgeIsLocallyDelaunay(7, 9) << endl;
     LawsonAlgorithm();
-
 }
 
 void Mesh::setMeshToTetra()
@@ -171,7 +163,7 @@ int Mesh::pointInWhichTriangle(point p)
 }
 
 
-bool Mesh::trisAreIncident(int tri_id_1, int tri_id_2)
+bool Mesh::trisAreIncident(int tri_id_1, int tri_id_2) const
 {
     for (uint i = 0; i < 3; i++)
         if (triangles[tri_id_1].triangles_indexes[i] == tri_id_2)
@@ -210,6 +202,9 @@ bool Mesh::pointIsInCircle(const Vertex &s, const Vertex &p, const Vertex &q, co
 
 bool Mesh::edgeIsLocallyDelaunay(int tri_id1, int tri_id2) const
 {
+    if (!trisAreIncident(tri_id1, tri_id2))
+        return false;
+
     // v1 : vertex in tri 1, in front off tri 2
     uint i;
     for (i = 0; i < 3; i++)
@@ -223,35 +218,73 @@ bool Mesh::edgeIsLocallyDelaunay(int tri_id1, int tri_id2) const
             break;
     int v2 = triangles[tri_id2].vertices_indexes[i];
 
-
     return !(pointIsInCircle(vertices[v1], triangles[tri_id2]) || pointIsInCircle(vertices[v2], triangles[tri_id1]));
 }
 
 
 void Mesh::LawsonAlgorithm()
 {
-    int max_it = 0;
+    // edges to flip
+    vector <pair <uint, uint> > edges_to_flip;
+    for (uint i = 0; i < triangles.size(); i++)
+        for (uint j = 0; j < 3; j++)
+            if (triangles[i].triangles_indexes[j] > i)
+                if (!edgeIsLocallyDelaunay(i, triangles[i].triangles_indexes[j]))
+                    edges_to_flip.push_back(make_pair(i, triangles[i].triangles_indexes[j]));
 
-    vector<pair <int, int> > edges_to_flip;
-    do
+
+    while (!edges_to_flip.empty())
     {
-        for (uint i = 0; i < edges_to_flip.size(); i++)
-            flipEdge(edges_to_flip[i].first, edges_to_flip[i].second);
+        pair <uint, uint> edge = edges_to_flip.back();
+        edges_to_flip.pop_back();
+        if (trisAreIncident(edge.first, edge.second))
+            if (!edgeIsLocallyDelaunay(edge.first, edge.second) && !isTriangleInfinite(edge.first) && !isTriangleInfinite(edge.second))
+            {
+                flipEdge(edge.first, edge.second);
 
+                for (uint i = 0; i < 3; i++)
+                {
+                    if (triangles[edge.first].triangles_indexes[i] != edge.second)
+                        edges_to_flip.push_back(make_pair(edge.first, triangles[edge.first].triangles_indexes[i]));
 
-        edges_to_flip.clear();
-
-        for (uint i = 0; i < triangles.size(); i++)
-            for (uint j = 0; j < 3; j++)
-                if (triangles[i].triangles_indexes[j] > i)
-                    if (!edgeIsLocallyDelaunay(i, triangles[i].triangles_indexes[j]) && !isTriangleInfinite(i) && !isTriangleInfinite(triangles[i].triangles_indexes[j]))
-                        edges_to_flip.push_back(make_pair(i, triangles[i].triangles_indexes[j]));
-
-        max_it++;
+                    if (triangles[edge.second].triangles_indexes[i] != edge.first)
+                        edges_to_flip.push_back(make_pair(edge.second, triangles[edge.second].triangles_indexes[i]));
+                }
+            }
     }
-    while (edges_to_flip.size() != 0 && max_it < 100);
 }
 
+
+void Mesh::incrementalLawson(vector<uint> tris_id, uint vertex_id)
+{
+    vector<pair <uint, uint> > edges_to_flip;
+
+    // def of conflict_zone
+    for (uint i = 0; i < tris_id.size(); i++)
+        for (uint j = 0; j < 3; j++)
+            if (triangles[tris_id[i]].vertices_indexes[j] == vertex_id)
+                edges_to_flip.push_back(make_pair(tris_id[i], triangles[tris_id[i]].triangles_indexes[j]));
+
+    while (!edges_to_flip.empty())
+    {
+        pair <uint, uint> edge = edges_to_flip.back();
+        edges_to_flip.pop_back();
+        if (trisAreIncident(edge.first, edge.second))
+            if (!edgeIsLocallyDelaunay(edge.first, edge.second) && !isTriangleInfinite(edge.first) && !isTriangleInfinite(edge.second))
+            {
+                flipEdge(edge.first, edge.second);
+
+                for (uint i = 0; i < 3; i++)
+                {
+                    if (triangles[edge.first].triangles_indexes[i] != edge.second)
+                        edges_to_flip.push_back(make_pair(edge.first, triangles[edge.first].triangles_indexes[i]));
+
+                    if (triangles[edge.second].triangles_indexes[i] != edge.first)
+                        edges_to_flip.push_back(make_pair(edge.second, triangles[edge.second].triangles_indexes[i]));
+                }
+            }
+    }
+}
 
 
 void Mesh::insertPoint(point p)
@@ -262,6 +295,11 @@ void Mesh::insertPoint(point p)
     if (i_g == -1)
         return;
 
+    for (uint i = 0; i < 3; i++)
+        if ( p.x == vertices[triangles[i_g].vertices_indexes[i]].x
+             && p.y == vertices[triangles[i_g].vertices_indexes[i]].y
+             && p.z == vertices[triangles[i_g].vertices_indexes[i]].z )
+            return;
 
     int i_g1 = triangles[i_g].triangles_indexes[1];
     int i_g2 = triangles[i_g].triangles_indexes[2];
@@ -307,8 +345,20 @@ void Mesh::insertPoint(point p)
 
 
 
-    // TO DO : incremental Lawson
-    LawsonAlgorithm();
+    // incremental Delaunay triangulation
+    vector<uint> v;
+    v.push_back(i_g);
+    v.push_back(i_nb);
+    v.push_back(i_nb + 1);
+    incrementalLawson(v, vertices.size() - 1);
+
+    // check if triangulation is Delaunay
+    /*
+    if (!isDelaunayTriangulation())
+        cout << "triangulation NOT ok" << endl;
+    else
+        cout << "ok" << endl;
+    */
 }
 
 
@@ -381,7 +431,15 @@ bool Mesh::isTriangleInfinite(int tri_id)
     return false;
 }
 
-
+bool Mesh::isDelaunayTriangulation()
+{
+    for (uint i = 0; i < triangles.size(); i++)
+        for (uint j = 0; j < 3; j++)
+            if (triangles[i].triangles_indexes[j] > i)
+                if ( !edgeIsLocallyDelaunay(i, triangles[i].triangles_indexes[j]) && !isTriangleInfinite(i) && !isTriangleInfinite(triangles[i].triangles_indexes[j]))
+                    return false;
+    return true;
+}
 
 ostream& operator<<(ostream& os, Mesh& mesh)
 {

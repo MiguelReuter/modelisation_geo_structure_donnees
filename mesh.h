@@ -6,6 +6,11 @@
 #include "triangle.h"
 #include <vector>
 #include <iostream>
+#include <GL/gl.h>
+#include <cstdlib>
+#include <time.h>
+
+#include <queue>
 
 struct point {
     double x, y, z;
@@ -34,8 +39,11 @@ public:
     bool edgeIsLocallyDelaunay(int tri_id1, int tri_id2) const;
 
     void LawsonAlgorithm();
+    void incrementalLawson(vector<uint> tris_id, uint vertex_id);
+    bool isDelaunayTriangulation();
 
-    bool trisAreIncident(int tri_id_1, int tri_id_2);
+
+    bool trisAreIncident(int tri_id_1, int tri_id_2) const;
 
     bool isTriangleInfinite(int tri_id);
 
