@@ -34,12 +34,7 @@ point colors[] = {{1.0,0.0,0.0},{0.0,1.0,0.0},{0.0,0.0,1.0},{1.0,1.0,0.0}, {0.0,
 
 Mesh::Mesh()
 {
-    // setMeshToTetra();
     setMeshToEnclosingBox();
-
-    //insertPoint({0.1, 0.4, 0.0});
-    //insertPoint({0.4, 0.1, 0.0});
-
     LawsonAlgorithm();
 }
 
@@ -80,221 +75,16 @@ void Mesh::setMeshToEnclosingBox()
     triangles.push_back(Triangle(0, 4, 3, 2, 1, 4));
 }
 
-void Mesh::draw()
-{
-    // draw faces
-    glBegin(GL_TRIANGLES);
-    for (uint i = 0; i < triangles.size(); i++)
-    {
-        Triangle triangle = triangles[i];
-
-        // change color for each triangle
-        //glColor3dv(&colors[i%8].x);
-        //if (i == 7)// || i == 9)
-            //glColor3ub(230, 160, 70);
-
-        if (isTriangleInfinite(i))
-            glColor3ub(90, 140, 210);
-
-        else
-            glColor3ub(70, 160, 230);
-
-        // for each vertices attached to the current triangle
-        for (uint j = 0; j < 3; j++)
-        {
-            Vertex vertex = vertices[triangle.vertices_indexes[j]];
-            glVertex3d(vertex.x, vertex.y, vertex.z);
-        }
-    }
-    glEnd();
-
-    // draw edges
-    glBegin(GL_LINES);
-    glColor3ub(0, 0, 0);
-    for (uint i = 0; i < triangles.size(); i++)
-    {
-        Triangle triangle = triangles[i];
-
-        // for each vertices attached to the current triangle
-        for (uint j = 0; j < 3; j++)
-        {
-            Vertex vertex = vertices[triangle.vertices_indexes[j]];
-            glVertex3d(vertex.x, vertex.y, vertex.z + EDGE_MARGIN);
-            vertex = vertices[triangle.vertices_indexes[(j+1)%3]];
-            glVertex3d(vertex.x, vertex.y, vertex.z + EDGE_MARGIN);
-        }
-    }
-    glEnd();
-}
-
-
-bool Mesh::pointIsInsideTriangle(int tri_id, point p)
-{
-    Triangle &tri = triangles[tri_id];
-    Vertex &a = vertices[tri.vertices_indexes[0]];
-    Vertex &b = vertices[tri.vertices_indexes[1]];
-    Vertex &c = vertices[tri.vertices_indexes[2]];
-
-    bool p_left_ab = crossProduct(b-a, p-a) * crossProduct(b-a, c-b) >= 0;
-    bool p_left_bc = crossProduct(c-b, p-b) * crossProduct(c-b, a-c) >= 0;
-    bool p_left_ca = crossProduct(a-c, p-c) * crossProduct(a-c, b-a) >= 0;
-
-    if (p_left_ab && p_left_bc && p_left_ca)
-        return true;
-    else
-        return false;
-}
-
-
-bool Mesh::pointIsInsideTriangle(int tri_id, double x, double y, double z)
-{
-    return pointIsInsideTriangle(tri_id, {x, y, z});
-}
-
-int Mesh::pointInWhichTriangle(point p)
-{
-    for (uint i = 0; i < triangles.size(); i++)
-    {
-        if (pointIsInsideTriangle(i, p))
-            if (!isTriangleInfinite(i))
-                return i;
-    }
-    return -1;
-}
-
-
-bool Mesh::trisAreIncident(int tri_id_1, int tri_id_2) const
-{
-    for (uint i = 0; i < 3; i++)
-        if (triangles[tri_id_1].triangles_indexes[i] == tri_id_2)
-            return true;
-
-    return false;
-}
-
-
-bool Mesh::pointIsInCircle(point s, point p, point q, point r) const
-{
-    // return true if point s is in circle defined by points p,q and r
-
-    float det = (q.x - p.x) * ( (r.y - p.y) * ((s.x - p.x)*(s.x - p.x) + (s.y - p.y)*(s.y - p.y)) - ((r.x - p.x)*(r.x - p.x) + (r.y - p.y)*(r.y - p.y)) * (s.y - p.y));
-    det -= (q.y - p.y) * ( (r.x - p.x)*((s.x - p.x)*(s.x - p.x) + (s.y - p.y)*(s.y - p.y)) - ((r.x - p.x)*(r.x - p.x) + (r.y - p.y)*(r.y - p.y))*(s.x - p.x));
-    det += ((q.x - p.x)*(q.x - p.x) + (q.y - p.y)*(q.y - p.y)) * ((r.x - p.x)*(s.y - p.y) - (r.y-p.y)*(s.x-p.x));
-    det *= -1;
-
-    return det >= 0;
-}
-
-bool Mesh::pointIsInCircle(point s, const Triangle &triangle) const
-{
-    point p = {this->vertices[triangle.vertices_indexes[0]].x, this->vertices[triangle.vertices_indexes[0]].y, this->vertices[triangle.vertices_indexes[0]].z};
-    point q = {this->vertices[triangle.vertices_indexes[1]].x, this->vertices[triangle.vertices_indexes[1]].y, this->vertices[triangle.vertices_indexes[1]].z};
-    point r = {this->vertices[triangle.vertices_indexes[2]].x, this->vertices[triangle.vertices_indexes[2]].y, this->vertices[triangle.vertices_indexes[2]].z};
-
-    return pointIsInCircle(s, p, q, r);
-}
-
-bool Mesh::pointIsInCircle(const Vertex &s, const Vertex &p, const Vertex &q, const Vertex &r) const
-{
-    return pointIsInCircle({s.x, s.y, s.z}, {p.x, p.y, p.z}, {q.x, q.y, q.z}, {r.x, r.y, r.z});
-}
-
-
-bool Mesh::edgeIsLocallyDelaunay(int tri_id1, int tri_id2) const
-{
-    if (!trisAreIncident(tri_id1, tri_id2))
-        return false;
-
-    // v1 : vertex in tri 1, in front off tri 2
-    uint i;
-    for (i = 0; i < 3; i++)
-        if (triangles[tri_id1].triangles_indexes[i] == tri_id2)
-            break;
-    int v1 = triangles[tri_id1].vertices_indexes[i];
-
-    // v2 : vertex in tri 2, in front off tri 1
-    for (i = 0; i < 3; i++)
-        if (triangles[tri_id2].triangles_indexes[i] == tri_id1)
-            break;
-    int v2 = triangles[tri_id2].vertices_indexes[i];
-
-    return !(pointIsInCircle(vertices[v1], triangles[tri_id2]) || pointIsInCircle(vertices[v2], triangles[tri_id1]));
-}
-
-
-void Mesh::LawsonAlgorithm()
-{
-    // edges to flip
-    vector <pair <uint, uint> > edges_to_flip;
-    for (uint i = 0; i < triangles.size(); i++)
-        for (uint j = 0; j < 3; j++)
-            if (triangles[i].triangles_indexes[j] > i)
-                if (!edgeIsLocallyDelaunay(i, triangles[i].triangles_indexes[j]))
-                    edges_to_flip.push_back(make_pair(i, triangles[i].triangles_indexes[j]));
-
-
-    while (!edges_to_flip.empty())
-    {
-        pair <uint, uint> edge = edges_to_flip.back();
-        edges_to_flip.pop_back();
-        if (trisAreIncident(edge.first, edge.second))
-            if (!edgeIsLocallyDelaunay(edge.first, edge.second) && !isTriangleInfinite(edge.first) && !isTriangleInfinite(edge.second))
-            {
-                flipEdge(edge.first, edge.second);
-
-                for (uint i = 0; i < 3; i++)
-                {
-                    if (triangles[edge.first].triangles_indexes[i] != edge.second)
-                        edges_to_flip.push_back(make_pair(edge.first, triangles[edge.first].triangles_indexes[i]));
-
-                    if (triangles[edge.second].triangles_indexes[i] != edge.first)
-                        edges_to_flip.push_back(make_pair(edge.second, triangles[edge.second].triangles_indexes[i]));
-                }
-            }
-    }
-}
-
-
-void Mesh::incrementalLawson(vector<uint> tris_id, uint vertex_id)
-{
-    vector<pair <uint, uint> > edges_to_flip;
-
-    // def of conflict_zone
-    for (uint i = 0; i < tris_id.size(); i++)
-        for (uint j = 0; j < 3; j++)
-            if (triangles[tris_id[i]].vertices_indexes[j] == vertex_id)
-                edges_to_flip.push_back(make_pair(tris_id[i], triangles[tris_id[i]].triangles_indexes[j]));
-
-    while (!edges_to_flip.empty())
-    {
-        pair <uint, uint> edge = edges_to_flip.back();
-        edges_to_flip.pop_back();
-        if (trisAreIncident(edge.first, edge.second))
-            if (!edgeIsLocallyDelaunay(edge.first, edge.second) && !isTriangleInfinite(edge.first) && !isTriangleInfinite(edge.second))
-            {
-                flipEdge(edge.first, edge.second);
-
-                for (uint i = 0; i < 3; i++)
-                {
-                    if (triangles[edge.first].triangles_indexes[i] != edge.second)
-                        edges_to_flip.push_back(make_pair(edge.first, triangles[edge.first].triangles_indexes[i]));
-
-                    if (triangles[edge.second].triangles_indexes[i] != edge.first)
-                        edges_to_flip.push_back(make_pair(edge.second, triangles[edge.second].triangles_indexes[i]));
-                }
-            }
-    }
-}
-
 
 void Mesh::insertPoint(point p)
 {
     // get the triangle the point p is going to be inserted in
-    int i_g = pointInWhichTriangle(p);
+    int i_g = inWhichTriangle(p);
 
     if (i_g == -1)
         return;
 
+    // if there is an existing point at the same position
     for (uint i = 0; i < 3; i++)
         if ( p.x == vertices[triangles[i_g].vertices_indexes[i]].x
              && p.y == vertices[triangles[i_g].vertices_indexes[i]].y
@@ -351,20 +141,11 @@ void Mesh::insertPoint(point p)
     v.push_back(i_nb);
     v.push_back(i_nb + 1);
     incrementalLawson(v, vertices.size() - 1);
-
-    // check if triangulation is Delaunay
-    /*
-    if (!isDelaunayTriangulation())
-        cout << "triangulation NOT ok" << endl;
-    else
-        cout << "ok" << endl;
-    */
 }
-
 
 void Mesh::flipEdge(int ig1, int ig2)
 {
-    if ( !trisAreIncident(ig1, ig2))
+    if ( !areIncident(ig1, ig2))
         return;
 
     // found 0 <= ir1 <= 2
@@ -423,7 +204,187 @@ void Mesh::flipEdge(int ig1, int ig2)
 }
 
 
-bool Mesh::isTriangleInfinite(int tri_id)
+void Mesh::draw() const
+{
+    // draw faces
+    glBegin(GL_TRIANGLES);
+    for (uint i = 0; i < triangles.size(); i++)
+    {
+        if (isTriangleInfinite(i))
+            glColor3ub(90, 140, 210);
+        else
+            glColor3ub(70, 160, 230);
+
+        // for each vertices attached to the current triangle
+        for (uint j = 0; j < 3; j++)
+        {
+            Vertex vertex = vertices[triangles[i].vertices_indexes[j]];
+            glVertex3d(vertex.x, vertex.y, vertex.z);
+        }
+    }
+    glEnd();
+
+    // draw edges
+    glBegin(GL_LINES);
+    glColor3ub(0, 0, 0);
+    for (uint i = 0; i < triangles.size(); i++)
+    {
+        Triangle triangle = triangles[i];
+
+        // for each vertices attached to the current triangle
+        for (uint j = 0; j < 3; j++)
+        {
+            Vertex vertex = vertices[triangle.vertices_indexes[j]];
+            glVertex3d(vertex.x, vertex.y, vertex.z + EDGE_MARGIN);
+            vertex = vertices[triangle.vertices_indexes[(j+1)%3]];
+            glVertex3d(vertex.x, vertex.y, vertex.z + EDGE_MARGIN);
+        }
+    }
+    glEnd();
+}
+
+void Mesh::drawVoronoi() const
+{
+    glBegin(GL_LINES);
+    glColor3ub(255, 0, 0);
+
+    for (uint i = 0; i < triangles.size(); i++)
+        for (uint j = 0; j < 3; j++)
+        {
+            Vertex center = getTriangleCenter(i);
+            Vertex adj_center = getTriangleCenter(triangles[i].triangles_indexes[j]);
+
+            if (!isTriangleInfinite(i))
+            {
+                glVertex3d(center.x, center.y, EDGE_MARGIN);
+
+                if (isTriangleInfinite(triangles[i].triangles_indexes[j]))
+                    glVertex3d(adj_center.x * 1000, adj_center.y * 1000, EDGE_MARGIN);
+                else
+                    glVertex3d(adj_center.x, adj_center.y, EDGE_MARGIN);
+            }
+        }
+    glEnd();
+}
+
+
+double Mesh::getAngle(uint tri_id, uint a_id, uint b_id, uint c_id) const
+{
+    // get angle between [ab] and [ac] (a,b and c defined by a_id, b_id and c_id <= 2)
+    Vertex a = vertices[triangles[tri_id].vertices_indexes[a_id]];
+    Vertex b = vertices[triangles[tri_id].vertices_indexes[b_id]];
+    Vertex c = vertices[triangles[tri_id].vertices_indexes[c_id]];
+
+    double ab[2] = {b.x - a.x, b.y - a.y};
+    double kab = 1 / sqrt(pow(ab[0], 2) + pow(ab[1], 2));
+    ab[0] = kab * ab[0];
+    ab[1] = kab * ab[1];
+
+    double ac[2] = {c.x - a.x, c.y - a.y};
+    double kac = 1 / sqrt(pow(ac[0], 2) + pow(ac[1], 2));
+    ac[0] = kac * ac[0];
+    ac[1] = kac * ac[1];
+
+    return acos(ab[0] * ac[0] + ab[1] * ac[1]);
+}
+
+Vertex Mesh::getTriangleCenter(uint tri_id) const
+{
+    double alpha = getAngle(tri_id, 0, 1, 2);
+    double beta = getAngle(tri_id, 1, 2, 0);
+    double gamma = getAngle(tri_id, 2, 0, 1);
+
+    double tan_bc = tan(beta) + tan(gamma);
+    double tan_ca = tan(gamma) + tan(alpha);
+    double tan_ab = tan(alpha) + tan(beta);
+
+    Vertex a = vertices[triangles[tri_id].vertices_indexes[0]];
+    Vertex b = vertices[triangles[tri_id].vertices_indexes[1]];
+    Vertex c = vertices[triangles[tri_id].vertices_indexes[2]];
+
+    double x = (a.x * tan_bc + b.x * tan_ca + c.x * tan_ab) / (tan_bc + tan_ca + tan_ab);
+    double y = (a.y * tan_bc + b.y * tan_ca + c.y * tan_ab) / (tan_bc + tan_ca + tan_ab);
+
+    return Vertex(x, y, 0.0, -1);
+}
+
+int Mesh::inWhichTriangle(point p)
+{
+    for (uint i = 0; i < triangles.size(); i++)
+        if (isInsideTriangle(i, p))
+            if (!isTriangleInfinite(i))
+                return i;
+    return -1;
+}
+
+
+bool Mesh::isInsideTriangle(int tri_id, point p)
+{
+    Triangle &tri = triangles[tri_id];
+    Vertex &a = vertices[tri.vertices_indexes[0]];
+    Vertex &b = vertices[tri.vertices_indexes[1]];
+    Vertex &c = vertices[tri.vertices_indexes[2]];
+
+    bool p_left_ab = crossProduct(b-a, p-a) * crossProduct(b-a, c-b) >= 0;
+    bool p_left_bc = crossProduct(c-b, p-b) * crossProduct(c-b, a-c) >= 0;
+    bool p_left_ca = crossProduct(a-c, p-c) * crossProduct(a-c, b-a) >= 0;
+
+    return (p_left_ab && p_left_bc && p_left_ca);
+}
+
+bool Mesh::isInCircle(point s, point p, point q, point r) const
+{
+    // return true if point s is in circle defined by points p,q and r
+
+    float det = (q.x - p.x) * ( (r.y - p.y) * ((s.x - p.x)*(s.x - p.x) + (s.y - p.y)*(s.y - p.y)) - ((r.x - p.x)*(r.x - p.x) + (r.y - p.y)*(r.y - p.y)) * (s.y - p.y));
+    det -= (q.y - p.y) * ( (r.x - p.x)*((s.x - p.x)*(s.x - p.x) + (s.y - p.y)*(s.y - p.y)) - ((r.x - p.x)*(r.x - p.x) + (r.y - p.y)*(r.y - p.y))*(s.x - p.x));
+    det += ((q.x - p.x)*(q.x - p.x) + (q.y - p.y)*(q.y - p.y)) * ((r.x - p.x)*(s.y - p.y) - (r.y-p.y)*(s.x-p.x));
+    det *= -1;
+
+    return det >= 0;
+}
+
+bool Mesh::isInCircle(point s, const Triangle &triangle) const
+{
+    point p = {this->vertices[triangle.vertices_indexes[0]].x, this->vertices[triangle.vertices_indexes[0]].y, this->vertices[triangle.vertices_indexes[0]].z};
+    point q = {this->vertices[triangle.vertices_indexes[1]].x, this->vertices[triangle.vertices_indexes[1]].y, this->vertices[triangle.vertices_indexes[1]].z};
+    point r = {this->vertices[triangle.vertices_indexes[2]].x, this->vertices[triangle.vertices_indexes[2]].y, this->vertices[triangle.vertices_indexes[2]].z};
+
+    return isInCircle(s, p, q, r);
+}
+
+bool Mesh::isInCircle(const Vertex &s, const Vertex &p, const Vertex &q, const Vertex &r) const
+{
+    return isInCircle({s.x, s.y, s.z}, {p.x, p.y, p.z}, {q.x, q.y, q.z}, {r.x, r.y, r.z});
+}
+
+bool Mesh::isEdgeLocallyDelaunay(int tri_id1, int tri_id2) const
+{
+    // v1 : vertex in tri 1, in front off tri 2
+    uint i;
+    for (i = 0; i < 3; i++)
+        if (triangles[tri_id1].triangles_indexes[i] == tri_id2)
+            break;
+    int v1 = triangles[tri_id1].vertices_indexes[i];
+
+    // v2 : vertex in tri 2, in front off tri 1
+    for (i = 0; i < 3; i++)
+        if (triangles[tri_id2].triangles_indexes[i] == tri_id1)
+            break;
+    int v2 = triangles[tri_id2].vertices_indexes[i];
+
+    return !(isInCircle(vertices[v1], triangles[tri_id2]) || isInCircle(vertices[v2], triangles[tri_id1]));
+}
+
+bool Mesh::areIncident(int tri_id_1, int tri_id_2) const
+{
+    for (uint i = 0; i < 3; i++)
+        if (triangles[tri_id_1].triangles_indexes[i] == tri_id_2)
+            return true;
+    return false;
+}
+
+bool Mesh::isTriangleInfinite(int tri_id) const
 {
     for (uint i = 0; i < 3; i++)
         if (triangles[tri_id].vertices_indexes[i] == 4)
@@ -431,15 +392,80 @@ bool Mesh::isTriangleInfinite(int tri_id)
     return false;
 }
 
+
+void Mesh::LawsonAlgorithm()
+{
+    // edges to flip
+    vector <pair <uint, uint> > edges_to_flip;
+    for (uint i = 0; i < triangles.size(); i++)
+        for (uint j = 0; j < 3; j++)
+            if (triangles[i].triangles_indexes[j] > i)
+                if (!isEdgeLocallyDelaunay(i, triangles[i].triangles_indexes[j]))
+                    edges_to_flip.push_back(make_pair(i, triangles[i].triangles_indexes[j]));
+
+
+    while (!edges_to_flip.empty())
+    {
+        pair <uint, uint> edge = edges_to_flip.back();
+        edges_to_flip.pop_back();
+        if (areIncident(edge.first, edge.second))
+            if (!isEdgeLocallyDelaunay(edge.first, edge.second) && !isTriangleInfinite(edge.first) && !isTriangleInfinite(edge.second))
+            {
+                flipEdge(edge.first, edge.second);
+
+                for (uint i = 0; i < 3; i++)
+                {
+                    if (triangles[edge.first].triangles_indexes[i] != edge.second)
+                        edges_to_flip.push_back(make_pair(edge.first, triangles[edge.first].triangles_indexes[i]));
+
+                    if (triangles[edge.second].triangles_indexes[i] != edge.first)
+                        edges_to_flip.push_back(make_pair(edge.second, triangles[edge.second].triangles_indexes[i]));
+                }
+            }
+    }
+}
+
+void Mesh::incrementalLawson(vector<uint> tris_id, uint vertex_id)
+{
+    vector<pair <uint, uint> > edges_to_flip;
+
+    // def of conflict_zone
+    for (uint i = 0; i < tris_id.size(); i++)
+        for (uint j = 0; j < 3; j++)
+            if (triangles[tris_id[i]].vertices_indexes[j] == vertex_id)
+                edges_to_flip.push_back(make_pair(tris_id[i], triangles[tris_id[i]].triangles_indexes[j]));
+
+    while (!edges_to_flip.empty())
+    {
+        pair <uint, uint> edge = edges_to_flip.back();
+        edges_to_flip.pop_back();
+        if (areIncident(edge.first, edge.second))
+            if (!isEdgeLocallyDelaunay(edge.first, edge.second) && !isTriangleInfinite(edge.first) && !isTriangleInfinite(edge.second))
+            {
+                flipEdge(edge.first, edge.second);
+
+                for (uint i = 0; i < 3; i++)
+                {
+                    if (triangles[edge.first].triangles_indexes[i] != edge.second)
+                        edges_to_flip.push_back(make_pair(edge.first, triangles[edge.first].triangles_indexes[i]));
+
+                    if (triangles[edge.second].triangles_indexes[i] != edge.first)
+                        edges_to_flip.push_back(make_pair(edge.second, triangles[edge.second].triangles_indexes[i]));
+                }
+            }
+    }
+}
+
 bool Mesh::isDelaunayTriangulation()
 {
     for (uint i = 0; i < triangles.size(); i++)
         for (uint j = 0; j < 3; j++)
             if (triangles[i].triangles_indexes[j] > i)
-                if ( !edgeIsLocallyDelaunay(i, triangles[i].triangles_indexes[j]) && !isTriangleInfinite(i) && !isTriangleInfinite(triangles[i].triangles_indexes[j]))
+                if ( !isEdgeLocallyDelaunay(i, triangles[i].triangles_indexes[j]) && !isTriangleInfinite(i) && !isTriangleInfinite(triangles[i].triangles_indexes[j]))
                     return false;
     return true;
 }
+
 
 ostream& operator<<(ostream& os, Mesh& mesh)
 {

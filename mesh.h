@@ -9,8 +9,7 @@
 #include <GL/gl.h>
 #include <cstdlib>
 #include <time.h>
-
-#include <queue>
+#include "math.h"
 
 struct point {
     double x, y, z;
@@ -28,40 +27,46 @@ public:
     vector<Vertex> vertices;
     vector<Triangle> triangles;
 
-    void draw();
+    // drawing
+    void draw() const;
+    void drawVoronoi() const;
 
+    // mesh definition
     void setMeshToTetra();
     void setMeshToEnclosingBox();
 
-    bool pointIsInsideTriangle(int tri_id, double x, double y, double z);
-    bool pointIsInsideTriangle(int tri_id, point p);
+    // changes on mesh
+    void insertPoint(point p);
+    void insertPoint(double x, double y, double z){return insertPoint({x, y, z});}
+    void flipEdge(int id_tri_1, int id_tri_2);
 
-    bool edgeIsLocallyDelaunay(int tri_id1, int tri_id2) const;
+    //get infos
+    double getAngle(uint tri_id, uint a_id, uint b_id, uint c_id) const;
+    Vertex getTriangleCenter(uint tri_id) const;
 
+    int inWhichTriangle(point p);
+
+    // Delaunay
     void LawsonAlgorithm();
     void incrementalLawson(vector<uint> tris_id, uint vertex_id);
     bool isDelaunayTriangulation();
 
+    // predicats
+    //  - point
+    bool isInsideTriangle(int tri_id, double x, double y, double z) {return isInsideTriangle(tri_id, {x, y, z});}
+    bool isInsideTriangle(int tri_id, point p);
 
-    bool trisAreIncident(int tri_id_1, int tri_id_2) const;
-
-    bool isTriangleInfinite(int tri_id);
-
-
-    bool pointIsInCircle(point s, point p, point q, point r) const;
-    bool pointIsInCircle(point s, const Triangle& triangle) const;
-    bool pointIsInCircle(const Vertex& s, const Triangle& triangle) const {return pointIsInCircle({s.x, s.y, s.z}, triangle);}
-    bool pointIsInCircle(const Vertex& s, const Vertex& p, const Vertex& q, const Vertex& r) const;
-
-    int pointInWhichTriangle(point p);
-
-    void insertPoint(point p);
-    void insertPoint(double x, double y, double z){return insertPoint({x, y, z});}
-
-    void flipEdge(int id_tri_1, int id_tri_2);
+    bool isInCircle(point s, point p, point q, point r) const;
+    bool isInCircle(point s, const Triangle& triangle) const;
+    bool isInCircle(const Vertex& s, const Triangle& triangle) const {return isInCircle({s.x, s.y, s.z}, triangle);}
+    bool isInCircle(const Vertex& s, const Vertex& p, const Vertex& q, const Vertex& r) const;
+    //  - edge
+    bool isEdgeLocallyDelaunay(int tri_id1, int tri_id2) const;
+    //  - triangle
+    bool areIncident(int tri_id_1, int tri_id_2) const;
+    bool isTriangleInfinite(int tri_id) const;
 
     friend ostream& operator<<(ostream& os, Mesh& mesh);
-
 };
 
 #endif // MESH_H

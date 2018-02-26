@@ -1,4 +1,6 @@
 #include "triangle.h"
+#include "math.h"
+
 
 Triangle::Triangle()
 {
@@ -22,6 +24,8 @@ Triangle::Triangle(int s0, int s1, int s2, int t0, int t1, int t2)
     triangles_indexes[1] = t1;
     triangles_indexes[2] = t2;
 }
+
+
 
 ostream& operator << (ostream& os, const Triangle& triangle)
 {

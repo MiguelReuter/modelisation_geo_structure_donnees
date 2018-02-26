@@ -31,7 +31,8 @@ void GLDisplay::paintGL()
 
     glLoadMatrixf(modelView.constData());
 
-    mesh.draw();  
+    mesh.draw();
+    mesh.drawVoronoi();
 }
 
 void GLDisplay::resizeGL(int w, int h)
@@ -187,7 +188,7 @@ int GLDisplay::getPickedTriangle()
     x = rayMin.x() + t * (rayMax.x() - rayMin.x());
     y = rayMin.y() + t * (rayMax.y() - rayMin.y());
 
-    return mesh.pointInWhichTriangle({x, y, 0.0});
+    return mesh.inWhichTriangle({x, y, 0.0});
 }
 
 

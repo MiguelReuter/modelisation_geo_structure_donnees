@@ -2,6 +2,8 @@
 #define TRIANGLE_H
 
 #include <iostream>
+#include <cstdlib>
+#include "vertex.h"
 
 using namespace std;
 
